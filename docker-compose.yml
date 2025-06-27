@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - airflow
+
+  airflow-init:
+    image: apache/airflow:2.9.1
+    entrypoint: >
+      bash -c "
+      airflow db init &&
+      airflow users create --username airflow --password airflow --firstname Air --lastname Flow --role Admin --email airflow@example.com
+      "
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'zKhoKseqHaWW0L5It3dNceJNBfMBhgQ7nh9j2rber6g='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'zKhoKseqHaWW0L5It3dNceJNBfMBhgQ7nh9j2rber6g='
+    networks:
+      - airflow
+
+  webserver:
+    image: apache/airflow:2.9.1
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'zKhoKseqHaWW0L5It3dNceJNBfMBhgQ7nh9j2rber6g='
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'zKhoKseqHaWW0L5It3dNceJNBfMBhgQ7nh9j2rber6g='
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+    ports:
+      - "8080:8080"
+    command: webserver
+    networks:
+      - airflow
+
+  scheduler:
+    image: apache/airflow:2.9.1
+    depends_on:
+      - webserver
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__FERNET_KEY: 'zKhoKseqHaWW0L5It3dNceJNBfMBhgQ7nh9j2rber6g='
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./scripts:/opt/airflow/scripts
+    command: scheduler
+    networks:
+      - airflow
+
+volumes:
+  postgres_data:
+
+networks:
+  airflow:
